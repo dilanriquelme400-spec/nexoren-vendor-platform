@@ -9,10 +9,9 @@ app.get("/", (req, res) => {
 
 app.get("/health", (req, res) => {
   res.json({
-    ok: true,
-    status: "healthy",
     mongoConnected: mongoose.connection.readyState === 1,
-    using: "NEW_SERVER_JS_v2"
+    mongoReadyState: mongoose.connection.readyState,
+    mongoUriExists: !!process.env.MONGODB_URI
   });
 });
 
