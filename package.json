@@ -1,0 +1,12 @@
+{
+  "name": "nexoren-vendor-platform",
+  "version": "1.0.0",
+  "description": "Nexoren vendor backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
