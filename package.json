@@ -1,12 +1,13 @@
 {
   "name": "nexoren-vendor-platform",
   "version": "1.0.0",
-  "description": "Nexoren vendor backend",
+  "description": "Vendor dashboard & marketplace backend for Nexoren",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
-  "dependencies": {
-    "express": "^4.18.2"
+  "engines": {
+    "node": ">=18"
   }
 }
