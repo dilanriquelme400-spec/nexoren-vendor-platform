@@ -39,3 +39,23 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+import express from "express";
+
+const app = express();
+app.use(express.json());
+
+// Salud (ya lo tienes)
+app.get("/", (req, res) => res.send("Nexoren Vendor API Running"));
+
+// ✅ Prueba de conexión desde el navegador / Shopify
+app.get("/ping", (req, res) => {
+  res.json({ ok: true, message: "pong", time: new Date().toISOString() });
+});
+
+// ✅ Prueba de POST (para cuando mandemos formularios / webhooks)
+app.post("/echo", (req, res) => {
+  res.json({ ok: true, received: req.body });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Server running on port", PORT));
