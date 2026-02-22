@@ -3,43 +3,36 @@ const mongoose = require("mongoose");
 
 const app = express();
 
-console.log("Servidor iniciando...");
-console.log("Mongo URI existe:", !!process.env.MONGODB_URI);
-
-// página principal
 app.get("/", (req, res) => {
-  res.send("Nexoren Vendor Platform está activo");
+  res.send("Nexoren Vendor Platform ONLINE ✅");
 });
 
-// estado del servidor
 app.get("/health", (req, res) => {
   res.json({
-    mongoConnected: mongoose.connection.readyState === 1
+    ok: true,
+    status: "healthy",
+    mongoConnected: mongoose.connection.readyState === 1,
+    using: "NEW_SERVER_JS_v2"
   });
 });
 
-// conectar a MongoDB
-async function conectarMongo() {
-  if (!process.env.MONGODB_URI) {
-    console.log("⚠️ No se encontró MONGODB_URI");
-    return;
+async function start() {
+  const uri = process.env.MONGODB_URI;
+
+  console.log("BOOT: NEW_SERVER_JS_v2");
+  console.log("MONGODB_URI exists:", !!uri);
+
+  if (uri) {
+    try {
+      await mongoose.connect(uri);
+      console.log("✅ Mongo connected");
+    } catch (e) {
+      console.log("❌ Mongo connect error:", e.message);
+    }
   }
 
-  try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log("✅ Conectado a MongoDB");
-  } catch (error) {
-    console.log("❌ Error conectando Mongo:", error.message);
-  }
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => console.log("Listening on", port));
 }
 
-async function iniciar() {
-  await conectarMongo();
-
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log("Servidor corriendo en puerto", PORT);
-  });
-}
-
-iniciar();
+start();
