@@ -1,6 +1,6 @@
 // server.js (simple, sin Express)
 const http = require("http");
-
+console.log("MONGODB_URI exists?", !!process.env.MONGODB_URI);
 const PORT = process.env.PORT || 3000;
 
 const server = http.createServer((req, res) => {
