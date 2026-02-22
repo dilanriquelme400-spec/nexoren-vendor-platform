@@ -1,80 +1,62 @@
-"use strict";
-
 const express = require("express");
 const mongoose = require("mongoose");
 
 const app = express();
-app.use(express.json());
 
-// --------------------
-// Config
-// --------------------
+// Railway asigna el puerto automáticamente
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI;
 
-// --------------------
-// Mongo connect
-// --------------------
+// 👇 IMPORTANTE:
+// usa MONGODB_URI si existe,
+// si no, usa MONGO_URL (tu variable actual)
+const MONGODB_URI =
+  process.env.MONGODB_URI || process.env.MONGO_URL;
+
 let mongoLastError = null;
 
-async function connectMongo() {
+// ========= CONEXIÓN A MONGODB =========
+async function conectarMongo() {
   if (!MONGODB_URI) {
-    mongoLastError = "Missing env var: MONGODB_URI";
-    console.log("❌ Mongo: falta MONGODB_URI (Railway Variables)");
+    console.log("❌ No se encontró URI de MongoDB");
+    mongoLastError = "missing_uri";
     return;
   }
 
   try {
-    // Si se cae / demora, no bloquea el server eternamente
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 8000
-    });
-
-    console.log("✅ MongoDB conectado");
-    mongoLastError = null;
-  } catch (err) {
-    mongoLastError = err?.message || String(err);
-    console.log("❌ Error conectando a MongoDB:", mongoLastError);
+    await mongoose.connect(MONGODB_URI);
+    console.log("✅ Conectado a MongoDB");
+  } catch (error) {
+    mongoLastError = error.message;
+    console.log("❌ Error conectando Mongo:", error.message);
   }
 }
 
-// Logs de estado
-mongoose.connection.on("connected", () => console.log("🟢 Mongoose: connected"));
-mongoose.connection.on("disconnected", () => console.log("🟠 Mongoose: disconnected"));
-mongoose.connection.on("error", (e) => console.log("🔴 Mongoose error:", e?.message || e));
-
-// --------------------
-// Routes
-// --------------------
+// ========= RUTA PRINCIPAL =========
 app.get("/", (req, res) => {
-  res.type("text").send("✅ Nexoren Vendor Platform está vivo");
+  res.send("Nexoren Vendor Platform está activo 🚀");
 });
 
-// Para que Shopify / Railway vea que está vivo
+// ========= HEALTH CHECK =========
 app.get("/health", (req, res) => {
   res.json({
     ok: true,
     status: "healthy",
     mongoConnected: mongoose.connection.readyState === 1,
-    mongoLastError: mongoLastError ? "present" : null, // no filtramos detalles aquí
+    mongoLastError,
     env: {
-      hasMONGODB_URI: Boolean(MONGODB_URI)
-    }
+      hasMongoURL: Boolean(process.env.MONGO_URL),
+      hasMongoURI: Boolean(process.env.MONGODB_URI),
+    },
   });
 });
 
-// Debug rápido (solo dice si existe, no imprime secretos)
-app.get("/debug", (req, res) => {
-  res.json({
-    mongoReadyState: mongoose.connection.readyState,
-    hasMONGODB_URI: Boolean(MONGODB_URI)
-  });
-});
+// ========= INICIAR SERVIDOR =========
+async function iniciar() {
+  await conectarMongo();
 
-// --------------------
-// Start
-// --------------------
-app.listen(PORT, "0.0.0.0", async () => {
-  console.log(`🚀 Server corriendo en puerto ${PORT}`);
-  await connectMongo();
-});
+  app.listen(PORT, () => {
+    console.log("🚀 Servidor corriendo en puerto", PORT);
+  });
+}
+
+iniciar();
