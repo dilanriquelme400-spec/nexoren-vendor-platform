@@ -1,61 +1,27 @@
-require("dotenv").config();
-
 const express = require("express");
 const cors = require("cors");
-const helmet = require("helmet");
-const morgan = require("morgan");
+const connectDB = require("./src/db");
 
-const { connectDB } = require("./src/db");
-const { initShopifyAuthRoutes } = require("./src/shopify");
-
-const publicApplyRouter = require("./src/routes/publicApply");
-const adminSellerRouter = require("./src/routes/adminSeller");
+const adminSellerRoutes = require("./src/routes/adminSeller");
 
 const app = express();
 
-// Seguridad base
-app.use(helmet());
+app.use(cors());
+app.use(express.json());
 
-// CORS: tu storefront + Shopify admin (por si pegas panel embebido)
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-  })
-);
-
-// Logs
-app.use(morgan("dev"));
-
-// JSON (para rutas admin)
-app.use(express.json({ limit: "2mb" }));
-
-// Conexión DB
+// conectar base de datos
 connectDB();
 
-// Shopify OAuth routes + session middleware
-initShopifyAuthRoutes(app);
-
-// Health
-app.get("/", (req, res) => {
-  res.json({ ok: true, app: "nexoren", status: "running" });
-});
-
+// health check
 app.get("/health", (req, res) => {
-  res.json({ ok: true, status: "healthy" });
+  res.json({ ok: true });
 });
 
-// Rutas
-app.use("/api/seller", publicApplyRouter);
-app.use("/api/admin", adminSellerRouter);
+// rutas admin (protegidas)
+app.use("/admin/sellers", adminSellerRoutes);
 
-// 404
-app.use((req, res) => {
-  res.status(404).json({ ok: false, error: "Not found" });
-});
+const PORT = process.env.PORT || 3000;
 
-// Start
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+app.listen(PORT, () => {
+  console.log("🚀 Server running on port", PORT);
 });
