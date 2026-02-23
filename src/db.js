@@ -1,12 +1,19 @@
+// src/db.js
 const mongoose = require("mongoose");
 
-async function connectDB() {
-  try {
-    await mongoose.connect(process.env.MONGO_URL);
-    console.log("✅ MongoDB conectado");
-  } catch (error) {
-    console.error("❌ Error MongoDB:", error.message);
-  }
-}
+module.exports = async function connectDB() {
+  const mongoUrl = process.env.MONGO_URL;
 
-module.exports = connectDB;
+  if (!mongoUrl) {
+    throw new Error("MONGO_URL no está configurada en Railway Variables");
+  }
+
+  // Evita logs raros y reconexiones agresivas
+  mongoose.set("strictQuery", true);
+
+  await mongoose.connect(mongoUrl, {
+    serverSelectionTimeoutMS: 15000,
+  });
+
+  console.log("✅ MongoDB connected");
+};
