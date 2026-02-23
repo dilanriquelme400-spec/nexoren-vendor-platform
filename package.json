@@ -2,16 +2,13 @@
   "name": "nexoren-vendor-platform",
   "version": "1.0.0",
   "private": true,
-  "description": "Nexoren Vendor Platform API",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
     "express": "^4.19.2",
-    "mongoose": "^8.12.1"
+    "mongoose": "^8.9.0"
   }
 }
