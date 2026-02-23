@@ -1,80 +1,24 @@
 const express = require("express");
-const SellerApplication = require("../models/SellerApplication");
-const { requireShopifyAdmin } = require("../middleware/requireShopifyAdmin");
-
 const router = express.Router();
+const Seller = require("../models/SellerApplication");
+const requireAdmin = require("../middleware/requireShopifyAdmin");
 
-// Todas estas rutas sólo admin (account owner)
-router.use(requireShopifyAdmin);
-
-// GET /api/admin/seller-applications?status=pending
-router.get("/seller-applications", async (req, res) => {
-  try {
-    const status = (req.query.status || "pending").toString();
-    const query = ["pending", "approved", "rejected"].includes(status) ? { status } : {};
-
-    const items = await SellerApplication.find(query)
-      .sort({ createdAt: -1 })
-      .limit(200)
-      .lean();
-
-    res.json({ ok: true, items });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Failed to fetch" });
-  }
+// obtener solicitudes
+router.get("/", requireAdmin, async (req, res) => {
+  const sellers = await Seller.find().sort({ createdAt: -1 });
+  res.json(sellers);
 });
 
-// POST /api/admin/seller-applications/:id/approve
-router.post("/seller-applications/:id/approve", async (req, res) => {
-  try {
-    const id = req.params.id;
-    const updated = await SellerApplication.findByIdAndUpdate(
-      id,
-      {
-        status: "approved",
-        review: {
-          reviewedAt: new Date(),
-          reviewedBy: req.shopifyUser?.email || "account_owner",
-          reason: null,
-        },
-      },
-      { new: true }
-    );
-
-    if (!updated) return res.status(404).json({ ok: false, error: "Not found" });
-    res.json({ ok: true, item: updated });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Approve failed" });
-  }
+// aprobar
+router.post("/:id/approve", requireAdmin, async (req, res) => {
+  await Seller.findByIdAndUpdate(req.params.id, { status: "approved" });
+  res.json({ ok: true });
 });
 
-// POST /api/admin/seller-applications/:id/reject
-router.post("/seller-applications/:id/reject", async (req, res) => {
-  try {
-    const id = req.params.id;
-    const reason = (req.body.reason || "").toString().trim().slice(0, 500) || "Rejected";
-
-    const updated = await SellerApplication.findByIdAndUpdate(
-      id,
-      {
-        status: "rejected",
-        review: {
-          reviewedAt: new Date(),
-          reviewedBy: req.shopifyUser?.email || "account_owner",
-          reason,
-        },
-      },
-      { new: true }
-    );
-
-    if (!updated) return res.status(404).json({ ok: false, error: "Not found" });
-    res.json({ ok: true, item: updated });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Reject failed" });
-  }
+// rechazar
+router.post("/:id/reject", requireAdmin, async (req, res) => {
+  await Seller.findByIdAndUpdate(req.params.id, { status: "rejected" });
+  res.json({ ok: true });
 });
 
 module.exports = router;
