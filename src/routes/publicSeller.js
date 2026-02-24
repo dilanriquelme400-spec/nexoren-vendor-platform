@@ -6,15 +6,16 @@ const router = express.Router();
 
 /**
  * POST /api/seller/apply
- * Body esperado (JSON) ideal:
+ *
+ * Body ideal (JSON):
  * {
  *   fullName, email, storeName, phone, country, address,
  *   idFrontUrl, idBackUrl, selfieUrl
  * }
  *
  * Nota:
- * - Si REQUIRE_DOCS === "true" => se exigen las 3 URLs
- * - Si REQUIRE_DOCS !== "true" => se permite enviar sin URLs y queda status "missing_docs"
+ * - Si REQUIRE_DOCS === "true" => exige las 3 URLs.
+ * - Si REQUIRE_DOCS !== "true" => permite enviar sin URLs, y guarda status "missing_docs".
  */
 
 function cleanStr(v) {
@@ -41,10 +42,10 @@ router.post("/apply", async (req, res) => {
     const body = req.body || {};
 
     // ✅ tolerante a variantes de nombres
-    const fullName = pick(body, ["fullName", "fullname", "full_name", "name"]);
+    const fullName = pick(body, ["fullName", "fullname", "full_name", "full name", "name"]);
     const email = pick(body, ["email", "mail"]).toLowerCase();
     const storeName = pick(body, ["storeName", "storename", "store_name", "store"]);
-    const phone = pick(body, ["phone", "phoneNumber", "phonenumber", "tel"]);
+    const phone = pick(body, ["phone", "phoneNumber", "phonenumber", "tel", "telefono"]);
     const country = pick(body, ["country", "pais"]);
     const address = pick(body, ["address", "direccion"]);
 
@@ -71,6 +72,7 @@ router.post("/apply", async (req, res) => {
       });
     }
 
+    // ✅ email válido
     if (!isValidEmail(email)) {
       return res.status(400).json({
         ok: false,
@@ -96,7 +98,7 @@ router.post("/apply", async (req, res) => {
       }
     }
 
-    // opcional: evitar spam duplicado (pendiente)
+    // opcional: evitar spam duplicado por email si ya hay pending/missing_docs
     const existingPending = await SellerApplication.findOne({
       email,
       status: { $in: ["pending", "missing_docs"] },
