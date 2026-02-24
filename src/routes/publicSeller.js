@@ -6,46 +6,55 @@ const router = express.Router();
 
 /**
  * POST /api/seller/apply
- * Body esperado (JSON):
+ * Body esperado (JSON) ideal:
  * {
  *   fullName, email, storeName, phone, country, address,
  *   idFrontUrl, idBackUrl, selfieUrl
  * }
  *
- * NOTA:
- * - Si process.env.REQUIRE_DOCS === "true", se exigen las 3 URLs.
- * - Si REQUIRE_DOCS no está en true, se permite enviar sin URLs y queda status "missing_docs".
+ * Nota:
+ * - Si REQUIRE_DOCS === "true" => se exigen las 3 URLs
+ * - Si REQUIRE_DOCS !== "true" => se permite enviar sin URLs y queda status "missing_docs"
  */
-
-function isValidEmail(email) {
-  if (!email) return false;
-  // validación básica suficiente para formularios
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email).trim());
-}
 
 function cleanStr(v) {
   if (v === null || v === undefined) return "";
   return String(v).trim();
 }
 
+function isValidEmail(email) {
+  if (!email) return false;
+  return /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(String(email).trim());
+}
+
+// toma el primer valor no-vacío de una lista de keys posibles
+function pick(body, keys) {
+  for (const k of keys) {
+    const v = cleanStr(body?.[k]);
+    if (v) return v;
+  }
+  return "";
+}
+
 router.post("/apply", async (req, res) => {
   try {
     const body = req.body || {};
 
-    const fullName = cleanStr(body.fullName);
-    const email = cleanStr(body.email).toLowerCase();
-    const storeName = cleanStr(body.storeName);
-    const phone = cleanStr(body.phone);
-    const country = cleanStr(body.country);
-    const address = cleanStr(body.address);
+    // ✅ tolerante a variantes de nombres
+    const fullName = pick(body, ["fullName", "fullname", "full_name", "name"]);
+    const email = pick(body, ["email", "mail"]).toLowerCase();
+    const storeName = pick(body, ["storeName", "storename", "store_name", "store"]);
+    const phone = pick(body, ["phone", "phoneNumber", "phonenumber", "tel"]);
+    const country = pick(body, ["country", "pais"]);
+    const address = pick(body, ["address", "direccion"]);
 
-    const idFrontUrl = cleanStr(body.idFrontUrl);
-    const idBackUrl = cleanStr(body.idBackUrl);
-    const selfieUrl = cleanStr(body.selfieUrl);
+    const idFrontUrl = pick(body, ["idFrontUrl", "idFrontURL", "id_front_url", "idFront"]);
+    const idBackUrl = pick(body, ["idBackUrl", "idBackURL", "id_back_url", "idBack"]);
+    const selfieUrl = pick(body, ["selfieUrl", "selfieURL", "selfie_url", "selfie"]);
 
     const REQUIRE_DOCS = String(process.env.REQUIRE_DOCS || "").toLowerCase() === "true";
 
-    // Campos base (siempre obligatorios)
+    // ✅ campos base obligatorios
     const missing = [];
     if (!fullName) missing.push("fullName");
     if (!email) missing.push("email");
@@ -54,8 +63,15 @@ router.post("/apply", async (req, res) => {
     if (!country) missing.push("country");
     if (!address) missing.push("address");
 
-    // Validación de email
-    if (email && !isValidEmail(email)) {
+    if (missing.length) {
+      return res.status(400).json({
+        ok: false,
+        error: "Faltan campos obligatorios",
+        missingFields: missing,
+      });
+    }
+
+    if (!isValidEmail(email)) {
       return res.status(400).json({
         ok: false,
         error: "Email inválido",
@@ -63,23 +79,24 @@ router.post("/apply", async (req, res) => {
       });
     }
 
-    // Documentos: obligatorios solo si REQUIRE_DOCS=true
+    // ✅ docs según modo
     if (REQUIRE_DOCS) {
-      if (!idFrontUrl) missing.push("idFrontUrl");
-      if (!idBackUrl) missing.push("idBackUrl");
-      if (!selfieUrl) missing.push("selfieUrl");
+      const missingDocs = [];
+      if (!idFrontUrl) missingDocs.push("idFrontUrl");
+      if (!idBackUrl) missingDocs.push("idBackUrl");
+      if (!selfieUrl) missingDocs.push("selfieUrl");
+
+      if (missingDocs.length) {
+        return res.status(400).json({
+          ok: false,
+          error: "Faltan documentos (URLs)",
+          missingFields: missingDocs,
+          requireDocs: true,
+        });
+      }
     }
 
-    if (missing.length) {
-      return res.status(400).json({
-        ok: false,
-        error: "Faltan campos obligatorios",
-        missingFields: missing,
-        requireDocs: REQUIRE_DOCS,
-      });
-    }
-
-    // Evitar spameo de solicitudes pendientes por el mismo email (opcional, pero útil)
+    // opcional: evitar spam duplicado (pendiente)
     const existingPending = await SellerApplication.findOne({
       email,
       status: { $in: ["pending", "missing_docs"] },
@@ -94,7 +111,7 @@ router.post("/apply", async (req, res) => {
       });
     }
 
-    // Status dinámico según si llegaron URLs
+    // status dinámico si llegaron docs o no
     const hasAllDocs = !!(idFrontUrl && idBackUrl && selfieUrl);
     const status = hasAllDocs ? "pending" : "missing_docs";
 
