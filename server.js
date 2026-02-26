@@ -7,6 +7,9 @@ const connectDB = require("./src/db");
 const publicSellerRoutes = require("./src/routes/publicSeller");
 const adminSellerRoutes = require("./src/routes/adminSeller");
 
+// ✅ NUEVO: ruta de uploads a Cloudinary
+const uploadRoutes = require("./src/routes/upload");
+
 const app = express();
 
 // Railway / proxies
@@ -19,19 +22,17 @@ app.use(express.urlencoded({ extended: true }));
 
 // ✅ RUTA PRINCIPAL
 app.get("/", (req, res) => {
-  res
-    .status(200)
-    .send("Nexoren Vendor Platform está vivo ✅ (API)");
+  res.status(200).send("Nexoren Vendor Platform está vivo ✅ (API)");
 });
 
 // ✅ HEALTHCHECK
 app.get("/health", async (req, res) => {
-  // si usas mongoose, esto lo veremos desde el modelo
   let mongoConnected = false;
   try {
     const mongoose = require("mongoose");
     mongoConnected = mongoose.connection.readyState === 1;
   } catch (e) {}
+
   res.json({
     ok: true,
     status: "healthy",
@@ -45,6 +46,10 @@ app.get("/health", async (req, res) => {
 // routes
 app.use("/api/seller", publicSellerRoutes);
 app.use("/admin", adminSellerRoutes);
+
+// ✅ NUEVO: endpoint para subir archivos (Cloudinary)
+// POST /api/upload  (FormData: file, folder opcional)
+app.use("/api/upload", uploadRoutes);
 
 // start
 const PORT = process.env.PORT || 3000;
