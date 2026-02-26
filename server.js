@@ -1,4 +1,4 @@
-// server.js (root)
+// server.js (root) — REEMPLAZA TODO EL ARCHIVO COMPLETO CON ESTO
 const express = require("express");
 const cors = require("cors");
 
@@ -6,6 +6,7 @@ const connectDB = require("./src/db");
 
 const publicSellerRoutes = require("./src/routes/publicSeller");
 const adminSellerRoutes = require("./src/routes/adminSeller");
+const uploadRoutes = require("./src/routes/upload"); // ✅ AÑADIDO
 
 const app = express();
 
@@ -40,27 +41,31 @@ app.get("/health", async (req, res) => {
         !!process.env.CLOUDINARY_CLOUD_NAME &&
         !!process.env.CLOUDINARY_API_KEY &&
         !!process.env.CLOUDINARY_API_SECRET,
-      nodeEnv: process.env.NODE_ENV || null,
+      requireDocs: String(process.env.REQUIRE_DOCS || "").toLowerCase() === "true",
+      hasAdminToken: !!process.env.ADMIN_TOKEN,
     },
   });
 });
 
-// ✅ (Opcional) montar upload routes si existe
-try {
-  const uploadRoutes = require("./src/routes/upload");
-  app.use("/api", uploadRoutes); // /api/upload
-  console.log("✅ upload routes mounted at /api");
-} catch (e) {
-  console.log("⚠️ upload routes NOT mounted:", e.message);
-}
+// ✅ ROUTES (ORDEN CLARO)
+app.use("/api/upload", uploadRoutes); // ✅ POST https://TU-RAILWAY/api/upload
+app.use("/api/seller", publicSellerRoutes); // ✅ POST https://TU-RAILWAY/api/seller/apply
+app.use("/admin", adminSellerRoutes); // ✅ GET https://TU-RAILWAY/admin/sellers
 
-// routes
-app.use("/api/seller", publicSellerRoutes);
-app.use("/admin", adminSellerRoutes);
-
-// 404 friendly
+// ✅ 404 JSON para rutas que no existan (para debug)
 app.use((req, res) => {
-  res.status(404).json({ ok: false, error: "Not found", path: req.path });
+  return res.status(404).json({
+    ok: false,
+    error: "Not found",
+    path: req.originalUrl,
+    method: req.method,
+  });
+});
+
+// ✅ Manejo de errores global (para que Railway no se “cuelgue” sin respuesta)
+app.use((err, req, res, next) => {
+  console.error("❌ Unhandled error:", err);
+  return res.status(500).json({ ok: false, error: "Server error" });
 });
 
 // start
