@@ -1,4 +1,4 @@
-// server.js (root) — REEMPLAZA TODO
+// server.js (root)  ✅ REEMPLAZA TODO ESTE ARCHIVO
 const express = require("express");
 const cors = require("cors");
 
@@ -6,6 +6,7 @@ const connectDB = require("./src/db");
 
 const publicSellerRoutes = require("./src/routes/publicSeller");
 const adminSellerRoutes = require("./src/routes/adminSeller");
+const uploadRoutes = require("./src/routes/upload"); // ✅ NUEVO
 
 const app = express();
 
@@ -36,31 +37,18 @@ app.get("/health", async (req, res) => {
     mongoConnected,
     env: {
       hasMongoURL: !!process.env.MONGO_URL,
-      hasCloudinary:
-        !!process.env.CLOUDINARY_CLOUD_NAME &&
-        !!process.env.CLOUDINARY_API_KEY &&
-        !!process.env.CLOUDINARY_API_SECRET,
-      requireDocs: String(process.env.REQUIRE_DOCS || "").toLowerCase() === "true",
-      hasAdminToken: !!process.env.ADMIN_TOKEN,
     },
   });
 });
 
-// ✅ Rutas principales
+// ✅ routes
 app.use("/api/seller", publicSellerRoutes);
 app.use("/admin", adminSellerRoutes);
 
-// ✅ Intentar montar upload SOLO si existe y no rompe
-try {
-  // OJO: este archivo debe existir: src/routes/upload.js
-  const uploadRoutes = require("./src/routes/upload");
-  app.use("/api/upload", uploadRoutes);
-  console.log("✅ /api/upload mounted");
-} catch (err) {
-  console.warn("⚠️ /api/upload NO montado (no existe o falló require):", err.message);
-}
+// ✅ UPLOAD (Cloudinary)
+app.use("/api/upload", uploadRoutes); // ✅ NUEVO
 
-// ✅ 404 JSON
+// ✅ 404 handler (para que siempre devuelva JSON)
 app.use((req, res) => {
   return res.status(404).json({
     ok: false,
@@ -68,12 +56,6 @@ app.use((req, res) => {
     path: req.originalUrl,
     method: req.method,
   });
-});
-
-// ✅ Error handler global
-app.use((err, req, res, next) => {
-  console.error("❌ Unhandled error:", err);
-  return res.status(500).json({ ok: false, error: "Server error" });
 });
 
 // start
