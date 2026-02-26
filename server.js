@@ -1,4 +1,4 @@
-// server.js (root) — REEMPLAZA TODO EL ARCHIVO COMPLETO CON ESTO
+// server.js (root) — REEMPLAZA TODO
 const express = require("express");
 const cors = require("cors");
 
@@ -6,7 +6,6 @@ const connectDB = require("./src/db");
 
 const publicSellerRoutes = require("./src/routes/publicSeller");
 const adminSellerRoutes = require("./src/routes/adminSeller");
-const uploadRoutes = require("./src/routes/upload"); // ✅ AÑADIDO
 
 const app = express();
 
@@ -47,12 +46,21 @@ app.get("/health", async (req, res) => {
   });
 });
 
-// ✅ ROUTES (ORDEN CLARO)
-app.use("/api/upload", uploadRoutes); // ✅ POST https://TU-RAILWAY/api/upload
-app.use("/api/seller", publicSellerRoutes); // ✅ POST https://TU-RAILWAY/api/seller/apply
-app.use("/admin", adminSellerRoutes); // ✅ GET https://TU-RAILWAY/admin/sellers
+// ✅ Rutas principales
+app.use("/api/seller", publicSellerRoutes);
+app.use("/admin", adminSellerRoutes);
 
-// ✅ 404 JSON para rutas que no existan (para debug)
+// ✅ Intentar montar upload SOLO si existe y no rompe
+try {
+  // OJO: este archivo debe existir: src/routes/upload.js
+  const uploadRoutes = require("./src/routes/upload");
+  app.use("/api/upload", uploadRoutes);
+  console.log("✅ /api/upload mounted");
+} catch (err) {
+  console.warn("⚠️ /api/upload NO montado (no existe o falló require):", err.message);
+}
+
+// ✅ 404 JSON
 app.use((req, res) => {
   return res.status(404).json({
     ok: false,
@@ -62,7 +70,7 @@ app.use((req, res) => {
   });
 });
 
-// ✅ Manejo de errores global (para que Railway no se “cuelgue” sin respuesta)
+// ✅ Error handler global
 app.use((err, req, res, next) => {
   console.error("❌ Unhandled error:", err);
   return res.status(500).json({ ok: false, error: "Server error" });
