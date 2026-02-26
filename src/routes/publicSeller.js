@@ -1,4 +1,4 @@
-// src/routes/publicSeller.js
+// src/routes/publicSeller.js — REEMPLAZA TODO EL ARCHIVO COMPLETO CON ESTO
 const express = require("express");
 const SellerApplication = require("../models/SellerApplication");
 
@@ -6,18 +6,19 @@ const router = express.Router();
 
 /**
  * POST /api/seller/apply
- *
- * Body ideal (JSON):
+ * Body (JSON) acepta variantes de keys:
  * {
- *   fullName, email, storeName, phone, country, address,
- *   idFrontUrl, idBackUrl, selfieUrl
+ *   fullName/fullname/full_name/name/full_name,
+ *   email/mail,
+ *   storeName/storename/store_name/store,
+ *   phone/phoneNumber/phonenumber/tel,
+ *   country/pais,
+ *   address/direccion,
+ *   idFrontUrl/id_front_url/idFront,
+ *   idBackUrl/id_back_url/idBack,
+ *   selfieUrl/selfie_url/selfie
  * }
- *
- * Nota:
- * - Si REQUIRE_DOCS === "true" => exige las 3 URLs.
- * - Si REQUIRE_DOCS !== "true" => permite enviar sin URLs, y guarda status "missing_docs".
  */
-
 function cleanStr(v) {
   if (v === null || v === undefined) return "";
   return String(v).trim();
@@ -41,11 +42,10 @@ router.post("/apply", async (req, res) => {
   try {
     const body = req.body || {};
 
-    // ✅ tolerante a variantes de nombres
     const fullName = pick(body, ["fullName", "fullname", "full_name", "full name", "name"]);
     const email = pick(body, ["email", "mail"]).toLowerCase();
     const storeName = pick(body, ["storeName", "storename", "store_name", "store"]);
-    const phone = pick(body, ["phone", "phoneNumber", "phonenumber", "tel", "telefono"]);
+    const phone = pick(body, ["phone", "phoneNumber", "phonenumber", "tel"]);
     const country = pick(body, ["country", "pais"]);
     const address = pick(body, ["address", "direccion"]);
 
@@ -55,7 +55,7 @@ router.post("/apply", async (req, res) => {
 
     const REQUIRE_DOCS = String(process.env.REQUIRE_DOCS || "").toLowerCase() === "true";
 
-    // ✅ campos base obligatorios
+    // Campos base obligatorios
     const missing = [];
     if (!fullName) missing.push("fullName");
     if (!email) missing.push("email");
@@ -72,7 +72,6 @@ router.post("/apply", async (req, res) => {
       });
     }
 
-    // ✅ email válido
     if (!isValidEmail(email)) {
       return res.status(400).json({
         ok: false,
@@ -81,7 +80,7 @@ router.post("/apply", async (req, res) => {
       });
     }
 
-    // ✅ docs según modo
+    // Docs según modo
     if (REQUIRE_DOCS) {
       const missingDocs = [];
       if (!idFrontUrl) missingDocs.push("idFrontUrl");
@@ -98,7 +97,7 @@ router.post("/apply", async (req, res) => {
       }
     }
 
-    // opcional: evitar spam duplicado por email si ya hay pending/missing_docs
+    // Evitar spam: si ya hay pending/missing_docs con mismo email
     const existingPending = await SellerApplication.findOne({
       email,
       status: { $in: ["pending", "missing_docs"] },
@@ -113,7 +112,7 @@ router.post("/apply", async (req, res) => {
       });
     }
 
-    // status dinámico si llegaron docs o no
+    // Status dinámico
     const hasAllDocs = !!(idFrontUrl && idBackUrl && selfieUrl);
     const status = hasAllDocs ? "pending" : "missing_docs";
 
