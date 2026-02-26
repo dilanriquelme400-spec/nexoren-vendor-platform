@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nexoren Admin</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<style>
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#0f0f14;
+  color:#fff;
+}
+.container{
+  max-width:900px;
+  margin:auto;
+  padding:40px 20px;
+}
+.card{
+  background:#151521;
+  border-radius:14px;
+  padding:24px;
+  margin-bottom:20px;
+}
+input{
+  width:100%;
+  padding:12px;
+  border-radius:10px;
+  border:none;
+  background:#1e1e2b;
+  color:#fff;
+  margin-top:10px;
+}
+button{
+  background:#5B2EFF;
+  color:white;
+  border:none;
+  padding:12px 18px;
+  border-radius:10px;
+  font-weight:700;
+  cursor:pointer;
+  margin-top:10px;
+}
+.seller{
+  background:#1e1e2b;
+  padding:14px;
+  border-radius:10px;
+  margin-top:12px;
+}
+img{
+  max-width:120px;
+  border-radius:8px;
+  margin-top:8px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<div class="card">
+<h2>Admin Token</h2>
+<input id="token" placeholder="paste ADMIN_TOKEN">
+<button onclick="loadSellers()">Load applications</button>
+</div>
+
+<div id="list"></div>
+
+</div>
+
+<script>
+const API = location.origin;
+
+async function loadSellers(){
+  const token = document.getElementById("token").value;
+
+  const res = await fetch(API + "/admin/sellers",{
+    headers:{ Authorization: token }
+  });
+
+  const data = await res.json();
+
+  if(!data.ok){
+    alert(data.error);
+    return;
+  }
+
+  const list = document.getElementById("list");
+  list.innerHTML="";
+
+  data.rows.forEach(s=>{
+    const div=document.createElement("div");
+    div.className="card";
+
+    div.innerHTML=`
+      <h3>${s.fullName}</h3>
+      <p><b>Email:</b> ${s.email}</p>
+      <p><b>Store:</b> ${s.storeName}</p>
+      <p><b>Status:</b> ${s.status}</p>
+
+      <img src="${s.idFrontUrl}">
+      <img src="${s.idBackUrl}">
+      <img src="${s.selfieUrl}">
+
+      <br>
+      <button onclick="approve('${s._id}')">Approve</button>
+      <button onclick="reject('${s._id}')">Reject</button>
+    `;
+
+    list.appendChild(div);
+  });
+}
+
+async function approve(id){
+  const token = document.getElementById("token").value;
+  await fetch(API+"/admin/sellers/"+id+"/approve",{
+    method:"POST",
+    headers:{ Authorization: token }
+  });
+  loadSellers();
+}
+
+async function reject(id){
+  const token = document.getElementById("token").value;
+  await fetch(API+"/admin/sellers/"+id+"/reject",{
+    method:"POST",
+    headers:{ Authorization: token }
+  });
+  loadSellers();
+}
+</script>
+</body>
+</html>
