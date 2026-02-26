@@ -5,6 +5,20 @@ const SellerApplication = require("../models/SellerApplication");
 const router = express.Router();
 
 /**
+ * Debug endpoint (NO requiere token)
+ * Sirve para revisar que el server tenga ADMIN_TOKEN sin exponerlo.
+ */
+router.get("/_debug", (req, res) => {
+  res.json({
+    ok: true,
+    env: {
+      hasAdminToken: !!(process.env.ADMIN_TOKEN && String(process.env.ADMIN_TOKEN).trim()),
+      adminTokenLength: process.env.ADMIN_TOKEN ? String(process.env.ADMIN_TOKEN).trim().length : 0,
+    },
+  });
+});
+
+/**
  * Admin auth middleware
  * Accepts:
  * - Authorization: Bearer <TOKEN>
@@ -21,12 +35,8 @@ function requireAdmin(req, res, next) {
   const xToken = String(req.headers["x-admin-token"] || "").trim();
 
   let token = "";
-
-  // Authorization: Bearer xxx
   if (auth.toLowerCase().startsWith("bearer ")) token = auth.slice(7).trim();
-  // Authorization: xxx
   if (!token && auth) token = auth;
-  // x-admin-token: xxx
   if (!token && xToken) token = xToken;
 
   if (!token || token !== expected) {
