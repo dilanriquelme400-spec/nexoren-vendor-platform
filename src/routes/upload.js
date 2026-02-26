@@ -1,26 +1,24 @@
-// src/routes/upload.js
+// src/routes/upload.js — REEMPLAZA TODO EL ARCHIVO COMPLETO CON ESTO
 const express = require("express");
 const multer = require("multer");
-const cloudinary = require("../cloudinary");
+const { uploadBufferToCloudinary } = require("../cloudinary");
 
 const router = express.Router();
 
 // Multer en memoria (no guarda archivos en disco)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+  limits: { fileSize: 12 * 1024 * 1024 }, // 12MB
 });
-
-function bufferToBase64(file) {
-  const b64 = file.buffer.toString("base64");
-  return `data:${file.mimetype};base64,${b64}`;
-}
 
 /**
  * POST /api/upload
  * FormData:
  * - file: (imagen/pdf)
  * - folder: (opcional) ej: "seller-applications"
+ *
+ * Respuesta:
+ * { ok:true, url, publicId, resourceType, bytes, format }
  */
 router.post("/", upload.single("file"), async (req, res) => {
   try {
@@ -29,22 +27,25 @@ router.post("/", upload.single("file"), async (req, res) => {
     }
 
     const folder = String(req.body.folder || "seller-applications");
-    const dataUri = bufferToBase64(req.file);
 
-    const result = await cloudinary.uploader.upload(dataUri, {
+    // Detectar tipo: PDF a "raw", imágenes a "image"
+    const mimetype = String(req.file.mimetype || "");
+    const isPdf = mimetype === "application/pdf" || req.file.originalname?.toLowerCase().endsWith(".pdf");
+
+    const result = await uploadBufferToCloudinary({
+      buffer: req.file.buffer,
       folder,
-      resource_type: "auto", // permite jpg/png/pdf
+      resourceType: isPdf ? "raw" : "image",
     });
 
-    return res.json({
-      ok: true,
-      url: result.secure_url,
-      publicId: result.public_id,
-      resourceType: result.resource_type,
-    });
+    return res.json({ ok: true, ...result });
   } catch (err) {
     console.error("upload error:", err);
-    return res.status(500).json({ ok: false, error: "Upload failed" });
+    return res.status(500).json({
+      ok: false,
+      error: "Upload failed",
+      detail: String(err?.message || err),
+    });
   }
 });
 
