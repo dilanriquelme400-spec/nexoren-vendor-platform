@@ -1,49 +1,81 @@
 // src/routes/adminSeller.js
 const express = require("express");
 const SellerApplication = require("../models/SellerApplication");
-const requireAdmin = require("../middleware/requireAdmin");
 
 const router = express.Router();
 
-// Todo /admin requiere token
-router.use(requireAdmin);
+/**
+ * Admin auth:
+ * acepta token desde:
+ * - query: ?token=XXXX
+ * - header: x-admin-token: XXXX
+ * - header: Authorization: Bearer XXXX
+ */
+function requireAdmin(req, res, next) {
+  const expected = (process.env.ADMIN_TOKEN || "").trim();
 
-// GET /admin/sellers?status=pending
-router.get("/sellers", async (req, res) => {
-  const status = req.query.status;
-  const filter = status ? { status } : {};
-  const items = await SellerApplication.find(filter).sort({ createdAt: -1 });
-  res.json(items);
+  // Si no existe en Railway, siempre fallará
+  if (!expected) {
+    return res.status(500).json({
+      ok: false,
+      error: "ADMIN_TOKEN no está configurado",
+    });
+  }
+
+  const qToken = (req.query.token || "").trim();
+  const hToken = (req.headers["x-admin-token"] || "").toString().trim();
+
+  let bearer = "";
+  const auth = (req.headers.authorization || "").toString();
+  if (auth.toLowerCase().startsWith("bearer ")) {
+    bearer = auth.slice(7).trim();
+  }
+
+  const provided = qToken || hToken || bearer;
+
+  if (!provided || provided !== expected) {
+    return res.status(401).json({ ok: false, error: "No autorizado" });
+  }
+
+  next();
+}
+
+// GET /admin/sellers  -> lista solicitudes
+router.get("/sellers", requireAdmin, async (req, res) => {
+  try {
+    const status = (req.query.status || "").trim(); // opcional: pending/approved/rejected
+    const filter = status ? { status } : {};
+    const rows = await SellerApplication.find(filter).sort({ createdAt: -1 }).limit(200);
+    res.json({ ok: true, count: rows.length, rows });
+  } catch (err) {
+    console.error("admin sellers error:", err);
+    res.status(500).json({ ok: false, error: "Server error" });
+  }
 });
 
-// POST /admin/sellers/:id/approve
-router.post("/sellers/:id/approve", async (req, res) => {
-  const { id } = req.params;
-  const adminNote = (req.body && req.body.adminNote) || "";
+// POST /admin/sellers/:id/status  body: { status: "approved"|"rejected"|"pending" }
+router.post("/sellers/:id/status", requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const status = (req.body?.status || "").trim();
 
-  const updated = await SellerApplication.findByIdAndUpdate(
-    id,
-    { status: "approved", adminNote },
-    { new: true }
-  );
+    if (!["pending", "approved", "rejected"].includes(status)) {
+      return res.status(400).json({ ok: false, error: "Estado inválido" });
+    }
 
-  if (!updated) return res.status(404).json({ ok: false, error: "No existe" });
-  res.json({ ok: true, item: updated });
-});
+    const doc = await SellerApplication.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
 
-// POST /admin/sellers/:id/reject
-router.post("/sellers/:id/reject", async (req, res) => {
-  const { id } = req.params;
-  const adminNote = (req.body && req.body.adminNote) || "";
+    if (!doc) return res.status(404).json({ ok: false, error: "No encontrado" });
 
-  const updated = await SellerApplication.findByIdAndUpdate(
-    id,
-    { status: "rejected", adminNote },
-    { new: true }
-  );
-
-  if (!updated) return res.status(404).json({ ok: false, error: "No existe" });
-  res.json({ ok: true, item: updated });
+    res.json({ ok: true, id: doc._id, status: doc.status });
+  } catch (err) {
+    console.error("admin update status error:", err);
+    res.status(500).json({ ok: false, error: "Server error" });
+  }
 });
 
 module.exports = router;
