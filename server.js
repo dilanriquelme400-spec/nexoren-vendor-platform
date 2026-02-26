@@ -1,95 +1,75 @@
-// src/routes/adminSeller.js
+// server.js (root)
 const express = require("express");
-const SellerApplication = require("../models/SellerApplication");
+const cors = require("cors");
 
-const router = express.Router();
+const connectDB = require("./src/db");
 
-/**
- * Admin auth middleware
- * Accepts:
- * - Authorization: Bearer <TOKEN>
- * - Authorization: <TOKEN>
- * - x-admin-token: <TOKEN>
- */
-function requireAdmin(req, res, next) {
-  const expected = (process.env.ADMIN_TOKEN || "").trim();
-  if (!expected) {
-    return res.status(500).json({ ok: false, error: "ADMIN_TOKEN no está configurado" });
-  }
+const publicSellerRoutes = require("./src/routes/publicSeller");
+const adminSellerRoutes = require("./src/routes/adminSeller");
+const uploadRoutes = require("./src/routes/upload");
 
-  const auth = String(req.headers.authorization || "").trim();
-  const xToken = String(req.headers["x-admin-token"] || "").trim();
+const app = express();
 
-  let token = "";
+// Railway / proxies
+app.set("trust proxy", 1);
 
-  // Authorization: Bearer xxx
-  if (auth.toLowerCase().startsWith("bearer ")) token = auth.slice(7).trim();
-  // Authorization: xxx
-  if (!token && auth) token = auth;
-  // x-admin-token: xxx
-  if (!token && xToken) token = xToken;
+// middlewares
+app.use(cors());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 
-  if (!token || token !== expected) {
-    return res.status(401).json({ ok: false, error: "No autorizado" });
-  }
-
-  next();
-}
-
-/**
- * GET /admin/sellers
- * Optional query: ?status=pending|approved|rejected
- */
-router.get("/sellers", requireAdmin, async (req, res) => {
-  try {
-    const status = (req.query.status || "").trim();
-    const q = status ? { status } : {};
-    const rows = await SellerApplication.find(q).sort({ createdAt: -1 }).lean();
-    return res.json({ ok: true, count: rows.length, rows });
-  } catch (err) {
-    console.error("admin list error:", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
-  }
+// ✅ HOME
+app.get("/", (req, res) => {
+  res.status(200).send("Nexoren Vendor Platform está vivo ✅ (API)");
 });
 
-/**
- * POST /admin/sellers/:id/approve
- */
-router.post("/sellers/:id/approve", requireAdmin, async (req, res) => {
+// ✅ HEALTH
+app.get("/health", async (req, res) => {
+  let mongoConnected = false;
   try {
-    const { id } = req.params;
-    const doc = await SellerApplication.findByIdAndUpdate(
-      id,
-      { status: "approved" },
-      { new: true }
-    ).lean();
+    const mongoose = require("mongoose");
+    mongoConnected = mongoose.connection.readyState === 1;
+  } catch (e) {}
 
-    if (!doc) return res.status(404).json({ ok: false, error: "No encontrado" });
-    return res.json({ ok: true, id: doc._id, status: doc.status });
-  } catch (err) {
-    console.error("admin approve error:", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
-  }
+  res.json({
+    ok: true,
+    status: "healthy",
+    mongoConnected,
+    env: {
+      hasMongoURL: !!process.env.MONGO_URL,
+      hasAdminToken: !!process.env.ADMIN_TOKEN,
+      hasCloudinary:
+        !!process.env.CLOUDINARY_CLOUD_NAME &&
+        !!process.env.CLOUDINARY_API_KEY &&
+        !!process.env.CLOUDINARY_API_SECRET,
+    },
+  });
 });
 
-/**
- * POST /admin/sellers/:id/reject
- */
-router.post("/sellers/:id/reject", requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const doc = await SellerApplication.findByIdAndUpdate(
-      id,
-      { status: "rejected" },
-      { new: true }
-    ).lean();
+// ✅ ROUTES
+app.use("/api/seller", publicSellerRoutes);
+app.use("/admin", adminSellerRoutes);
+app.use("/api/upload", uploadRoutes);
 
-    if (!doc) return res.status(404).json({ ok: false, error: "No encontrado" });
-    return res.json({ ok: true, id: doc._id, status: doc.status });
-  } catch (err) {
-    console.error("admin reject error:", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
-  }
+// ✅ NOT FOUND (para que no “muera” cuando visitas rutas malas)
+app.use((req, res) => {
+  res.status(404).json({
+    ok: false,
+    error: "Not found",
+    path: req.path,
+    method: req.method,
+  });
 });
 
-module.exports = router;
+// ✅ START
+const PORT = process.env.PORT || 3000;
+
+(async () => {
+  try {
+    await connectDB();
+    app.listen(PORT, () => console.log(`✅ Server listening on port ${PORT}`));
+  } catch (err) {
+    console.error("❌ Failed to start server:", err);
+    process.exit(1);
+  }
+})();
