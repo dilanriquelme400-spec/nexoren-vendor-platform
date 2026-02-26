@@ -1,4 +1,4 @@
-// server.js (root) ✅ REEMPLAZA TODO
+// server.js (root)
 const express = require("express");
 const cors = require("cors");
 
@@ -6,9 +6,10 @@ const connectDB = require("./src/db");
 
 const publicSellerRoutes = require("./src/routes/publicSeller");
 const adminSellerRoutes = require("./src/routes/adminSeller");
-const uploadRoutes = require("./src/routes/upload"); // ✅
+const adminPanelRoutes = require("./src/routes/adminPanel"); // ✅ NUEVO
 
 const app = express();
+
 app.set("trust proxy", 1);
 
 app.use(cors());
@@ -25,7 +26,6 @@ app.get("/health", async (req, res) => {
     const mongoose = require("mongoose");
     mongoConnected = mongoose.connection.readyState === 1;
   } catch (e) {}
-
   res.json({
     ok: true,
     status: "healthy",
@@ -34,14 +34,14 @@ app.get("/health", async (req, res) => {
   });
 });
 
-// ✅ Rutas
+// routes
 app.use("/api/seller", publicSellerRoutes);
 app.use("/admin", adminSellerRoutes);
-app.use("/api/upload", uploadRoutes); // ✅ ESTA ES LA QUE TE FALTABA
+app.use("/admin", adminPanelRoutes); // ✅ NUEVO: UI
 
-// ✅ 404 JSON (para debug fácil)
+// 404 helper (para entender errores)
 app.use((req, res) => {
-  return res.status(404).json({
+  res.status(404).json({
     ok: false,
     error: "Not found",
     path: req.originalUrl,
