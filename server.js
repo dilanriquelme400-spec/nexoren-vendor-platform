@@ -7,9 +7,6 @@ const connectDB = require("./src/db");
 const publicSellerRoutes = require("./src/routes/publicSeller");
 const adminSellerRoutes = require("./src/routes/adminSeller");
 
-// ✅ NUEVO: ruta de uploads a Cloudinary
-const uploadRoutes = require("./src/routes/upload");
-
 const app = express();
 
 // Railway / proxies
@@ -39,17 +36,32 @@ app.get("/health", async (req, res) => {
     mongoConnected,
     env: {
       hasMongoURL: !!process.env.MONGO_URL,
+      hasCloudinary:
+        !!process.env.CLOUDINARY_CLOUD_NAME &&
+        !!process.env.CLOUDINARY_API_KEY &&
+        !!process.env.CLOUDINARY_API_SECRET,
+      nodeEnv: process.env.NODE_ENV || null,
     },
   });
 });
+
+// ✅ (Opcional) montar upload routes si existe
+try {
+  const uploadRoutes = require("./src/routes/upload");
+  app.use("/api", uploadRoutes); // /api/upload
+  console.log("✅ upload routes mounted at /api");
+} catch (e) {
+  console.log("⚠️ upload routes NOT mounted:", e.message);
+}
 
 // routes
 app.use("/api/seller", publicSellerRoutes);
 app.use("/admin", adminSellerRoutes);
 
-// ✅ NUEVO: endpoint para subir archivos (Cloudinary)
-// POST /api/upload  (FormData: file, folder opcional)
-app.use("/api/upload", uploadRoutes);
+// 404 friendly
+app.use((req, res) => {
+  res.status(404).json({ ok: false, error: "Not found", path: req.path });
+});
 
 // start
 const PORT = process.env.PORT || 3000;
